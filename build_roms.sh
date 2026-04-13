@@ -107,7 +107,7 @@ while true; do
     echo "Cleaning up hardware/qcom-caf..."
     if [ -d "hardware/qcom-caf" ]; then
         cd hardware/qcom-caf
-        rm -rf msm8953 msm8996 msm8998 sdm660 sdm845 sm8150 sm8250 sm8350 sm8450 sm8550 sm8650 sm8750
+        rm -rf msm8953 msm8996 msm8998 sdm660 sdm845 sm8150 sm8250 sm8350 sm8450 sm8450-6.6 sm8550 sm8650 sm8750
         cd - > /dev/null
     else
         echo "hardware/qcom-caf directory not found, skipping cleanup."

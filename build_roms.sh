@@ -72,7 +72,7 @@ while true; do
             PROJECT="infinity"
             MANIFEST_BRANCH="infinity"
             REPO_INIT="repo init --no-repo-verify --git-lfs -u https://github.com/ProjectInfinity-X/manifest -b 16 -g default,-mips,-darwin,-notdefault"
-            BUILD_CMD=". build/envsetup.sh && lunch infinity_tapas-userdebug"
+            BUILD_CMD=". build/envsetup.sh && lunch infinity_tapas-userdebug && m bacon -j\$(nproc --all)"
             ;;
         5)
             echo "Exiting..."

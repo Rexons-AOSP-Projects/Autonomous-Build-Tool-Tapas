@@ -8,7 +8,6 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' 
 
-
 print_header() {
     echo -e "\n${CYAN}${BOLD}======================================================${NC}"
     echo -e "${CYAN}${BOLD}  $1 ${NC}"
@@ -20,38 +19,43 @@ success() { echo -e "${GREEN}[✔]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[✖]${NC} $1"; }
 
-
 clear
 print_header "SSH Setup & Verification"
 
-
+# Check if SSH key exists. If not, generate, prompt, and verify. If it does, load it and auto-verify.
 if [ ! -f ~/.ssh/id_ed25519 ]; then
     info "Generating new SSH Key..."
     ssh-keygen -t ed25519 -C "raniv2057@gmail.com" -f ~/.ssh/id_ed25519 -N "" >/dev/null 2>&1
     success "New SSH key generated."
+
+    info "Starting SSH agent and adding key..."
+    eval "$(ssh-agent -s)" >/dev/null 2>&1
+    ssh-add ~/.ssh/id_ed25519 >/dev/null 2>&1
+
+    echo -e "\n${YELLOW}--- Here is your Public SSH Key ---${NC}"
+    cat ~/.ssh/id_ed25519.pub
+    echo -e "${YELLOW}-----------------------------------${NC}\n"
+    warn "Please ensure the above key is added to your GitHub account."
+
+    read -p "$(echo -e ${BOLD}Have you added the key to GitHub? Press 'y' to verify connection: ${NC})" VERIFY_SSH
+    if [[ "$VERIFY_SSH" == "y" || "$VERIFY_SSH" == "Y" ]]; then
+        info "Verifying connection to GitHub..."
+        ssh -T git@github.com
+    else
+        warn "Skipping verification. Note: GitHub cloning might fail if the key isn't set up."
+    fi
+    sleep 2
 else
     success "SSH key ~/.ssh/id_ed25519 already exists. Skipping generation."
-fi
-
-info "Starting SSH agent and adding key..."
-eval "$(ssh-agent -s)" >/dev/null 2>&1
-ssh-add ~/.ssh/id_ed25519 >/dev/null 2>&1
-
-echo -e "\n${YELLOW}--- Here is your Public SSH Key ---${NC}"
-cat ~/.ssh/id_ed25519.pub
-echo -e "${YELLOW}-----------------------------------${NC}\n"
-warn "Please ensure the above key is added to your GitHub account."
-
-
-read -p "$(echo -e ${BOLD}Have you added the key to GitHub? Press 'y' to verify connection: ${NC})" VERIFY_SSH
-if [[ "$VERIFY_SSH" == "y" || "$VERIFY_SSH" == "Y" ]]; then
-    info "Verifying connection to GitHub..."
+    
+    info "Starting SSH agent and loading existing key..."
+    eval "$(ssh-agent -s)" >/dev/null 2>&1
+    ssh-add ~/.ssh/id_ed25519 >/dev/null 2>&1
+    
+    info "Testing connection to GitHub with existing key..."
     ssh -T git@github.com
-else
-    warn "Skipping verification. Note: GitHub cloning might fail if the key isn't set up."
+    sleep 2
 fi
-sleep 2
-
 
 print_header "Git Global Configuration"
 
@@ -62,21 +66,9 @@ success "Git global user set to: $(git config --global user.name)"
 success "Git global email set to: $(git config --global user.email)"
 sleep 2
 
-
-while true; do
-    clear
-    print_header "Android ROM Build Menu"
-    
-    echo -e "  ${BOLD}1.${NC} Axion"
-    echo -e "  ${BOLD}2.${NC} Lunaris"
-    echo -e "  ${BOLD}3.${NC} Evolution"
-    echo -e "  ${BOLD}4.${NC} Infinity"
-    echo -e "  ${BOLD}5.${NC} ${RED}Exit Script${NC}"
-    echo ""
-    read -p "$(echo -e ${BOLD}Enter your choice [1-5]: ${NC})" CHOICE
-
-
-    case $CHOICE in
+# Helper function to prevent repeating project variables
+set_project_env() {
+    case $1 in
         1)
             PROJECT="axion"
             MANIFEST_BRANCH="axion"
@@ -101,7 +93,43 @@ while true; do
             REPO_INIT="repo init --no-repo-verify --git-lfs -u https://github.com/ProjectInfinity-X/manifest -b 16 -g default,-mips,-darwin,-notdefault"
             BUILD_CMD=". build/envsetup.sh && lunch infinity_tapas-userdebug && m bacon -j\$(nproc --all)"
             ;;
+    esac
+}
+
+while true; do
+    clear
+    print_header "Android ROM Build Menu"
+    
+    echo -e "  ${BOLD}1.${NC} Axion"
+    echo -e "  ${BOLD}2.${NC} Lunaris"
+    echo -e "  ${BOLD}3.${NC} Evolution"
+    echo -e "  ${BOLD}4.${NC} Infinity"
+    echo -e "  ${BOLD}5.${NC} Restart (Run build command only)"
+    echo -e "  ${BOLD}6.${NC} ${RED}Exit Script${NC}"
+    echo ""
+    read -p "$(echo -e ${BOLD}Enter your choice [1-6]: ${NC})" CHOICE
+
+    SKIP_SYNC=false
+
+    case $CHOICE in
+        1|2|3|4)
+            set_project_env "$CHOICE"
+            ;;
         5)
+            echo -e "\n${CYAN}Which project would you like to restart?${NC}"
+            echo -e "  1. Axion\n  2. Lunaris\n  3. Evolution\n  4. Infinity"
+            read -p "$(echo -e ${BOLD}Enter choice [1-4]: ${NC})" RESTART_CHOICE
+            
+            if [[ "$RESTART_CHOICE" =~ ^[1-4]$ ]]; then
+                set_project_env "$RESTART_CHOICE"
+                SKIP_SYNC=true
+            else
+                error "Invalid choice."
+                sleep 2
+                continue
+            fi
+            ;;
+        6)
             success "Exiting script. Have a great day!"
             exit 0
             ;;
@@ -112,14 +140,40 @@ while true; do
             ;;
     esac
 
+    # If user chose 'Restart', skip straight to the build command
+    if [ "$SKIP_SYNC" = true ]; then
+        clear
+        print_header "Restarting Build: $PROJECT"
+        
+        if [ ! -d "$PROJECT" ]; then
+            error "Directory '$PROJECT' does not exist. Please run a full sync (Options 1-4) first."
+            sleep 3
+            continue
+        fi
+        
+        cd "$PROJECT" || exit
+        info "Running build command..."
+        eval "$BUILD_CMD"
+        
+        print_header "Build Sequence Finished"
+        success "The restart process for $PROJECT is complete!"
+        
+        echo ""
+        read -p "$(echo -e ${BOLD}Press Enter to return to the main menu...${NC})"
+        cd ..
+        continue
+    fi
+
+    # ---------------------------------------------------------
+    # Normal Init, Sync, and Cleanup Sequence (Options 1-4)
+    # ---------------------------------------------------------
+
     clear
     print_header "Initializing $PROJECT"
 
-  
     info "Setting up workspace..."
     mkdir -p "$PROJECT"
     cd "$PROJECT" || exit
-
 
     info "Cloning local manifests..."
     mkdir -p .repo/local_manifests
@@ -128,11 +182,9 @@ while true; do
     info "Running repo init..."
     $REPO_INIT
 
-
     info "Running repo sync..."
     repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
 
-   
     print_header "Hardware Cleanup"
     if [ -d "hardware/qcom-caf" ]; then
         info "Cleaning up hardware/qcom-caf..."
@@ -144,15 +196,12 @@ while true; do
         warn "hardware/qcom-caf directory not found, skipping cleanup."
     fi
 
-
     info "Cleaning up XML snippets..."
- 
     SNIPPET_DIR=$(ls -d .repo/manifests/snippets 2>/dev/null || ls -d .repo/mani*/sni* 2>/dev/null)
     
     if [ -n "$SNIPPET_DIR" ] && [ -d "$SNIPPET_DIR" ]; then
         cd "$SNIPPET_DIR" || exit
         
-       
         BOARDS="msm8953 msm8996 msm8998 sdm660 sdm845 sm8150 sm8250 sm8350 sm8450 sm8450-6.6 sm8550 sm8650 sm8750"
         for BOARD in $BOARDS; do
             sed -i "/path=\"hardware\/qcom-caf\/$BOARD/d" *.xml 2>/dev/null || true
@@ -164,17 +213,14 @@ while true; do
         warn "Snippet directory not found, skipping XML edits."
     fi
 
- 
     print_header "Starting Build: $PROJECT"
     eval "$BUILD_CMD"
     
     print_header "Build Sequence Finished"
     success "The process for $PROJECT is complete!"
     
-
     echo ""
     read -p "$(echo -e ${BOLD}Press Enter to return to the main menu...${NC})"
     
- 
     cd ..
 done

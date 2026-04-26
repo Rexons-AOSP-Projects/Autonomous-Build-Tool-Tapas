@@ -93,6 +93,12 @@ set_project_env() {
             REPO_INIT="repo init --no-repo-verify --git-lfs -u https://github.com/ProjectInfinity-X/manifest -b 16 -g default,-mips,-darwin,-notdefault"
             BUILD_CMD=". build/envsetup.sh && lunch infinity_tapas-userdebug && m bacon -j\$(nproc --all)"
             ;;
+        5)
+            PROJECT="mist"
+            MANIFEST_BRANCH="mist"
+            REPO_INIT="repo init -u https://github.com/Project-Mist-OS/manifest -b 16.2 --git-lfs"
+            BUILD_CMD=". build/envsetup.sh && mistify tapas userdebug && mist b"
+            ;;
     esac
 }
 
@@ -104,23 +110,24 @@ while true; do
     echo -e "  ${BOLD}2.${NC} Lunaris"
     echo -e "  ${BOLD}3.${NC} Evolution"
     echo -e "  ${BOLD}4.${NC} Infinity"
-    echo -e "  ${BOLD}5.${NC} Restart (Run build command only)"
-    echo -e "  ${BOLD}6.${NC} ${RED}Exit Script${NC}"
+    echo -e "  ${BOLD}5.${NC} Mist"
+    echo -e "  ${BOLD}6.${NC} Restart (Run build command only)"
+    echo -e "  ${BOLD}7.${NC} ${RED}Exit Script${NC}"
     echo ""
-    read -p "$(echo -e ${BOLD}Enter your choice [1-6]: ${NC})" CHOICE
+    read -p "$(echo -e ${BOLD}Enter your choice [1-7]: ${NC})" CHOICE
 
     SKIP_SYNC=false
 
     case $CHOICE in
-        1|2|3|4)
+        1|2|3|4|5)
             set_project_env "$CHOICE"
             ;;
-        5)
+        6)
             echo -e "\n${CYAN}Which project would you like to restart?${NC}"
-            echo -e "  1. Axion\n  2. Lunaris\n  3. Evolution\n  4. Infinity"
-            read -p "$(echo -e ${BOLD}Enter choice [1-4]: ${NC})" RESTART_CHOICE
+            echo -e "  1. Axion\n  2. Lunaris\n  3. Evolution\n  4. Infinity\n  5. Mist"
+            read -p "$(echo -e ${BOLD}Enter choice [1-5]: ${NC})" RESTART_CHOICE
             
-            if [[ "$RESTART_CHOICE" =~ ^[1-4]$ ]]; then
+            if [[ "$RESTART_CHOICE" =~ ^[1-5]$ ]]; then
                 set_project_env "$RESTART_CHOICE"
                 SKIP_SYNC=true
             else
@@ -129,7 +136,7 @@ while true; do
                 continue
             fi
             ;;
-        6)
+        7)
             success "Exiting script. Have a great day!"
             exit 0
             ;;
@@ -146,7 +153,7 @@ while true; do
         print_header "Restarting Build: $PROJECT"
         
         if [ ! -d "$PROJECT" ]; then
-            error "Directory '$PROJECT' does not exist. Please run a full sync (Options 1-4) first."
+            error "Directory '$PROJECT' does not exist. Please run a full sync (Options 1-5) first."
             sleep 3
             continue
         fi
@@ -165,7 +172,7 @@ while true; do
     fi
 
     # ---------------------------------------------------------
-    # Normal Init, Sync, and Cleanup Sequence (Options 1-4)
+    # Normal Init, Sync, and Cleanup Sequence (Options 1-5)
     # ---------------------------------------------------------
 
     clear

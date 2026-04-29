@@ -73,7 +73,7 @@ set_project_env() {
             PROJECT="axion"
             MANIFEST_BRANCH="axion"
             REPO_INIT="repo init -u https://github.com/AxionAOSP/android.git -b lineage-23.2 --git-lfs"
-            BUILD_CMD=". build/envsetup.sh && axion tapas userdebug gms core && ax -br -j\$(nproc --all)"
+            BUILD_CMD=". build/envsetup.sh && axion tapas userdebug core && ax -br -j\$(nproc --all)"
             ;;
         2)
             PROJECT="lunaris"
